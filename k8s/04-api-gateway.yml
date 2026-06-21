@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: geosentinel
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: geosentinel/api-gateway:1.0.0
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: geosentinel-config
+            - secretRef:
+                name: geosentinel-secrets
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "docker"
+            - name: AUTH_SERVICE_URL
+              value: "http://auth-service:8081"
+            - name: RISK_ENGINE_URL
+              value: "http://risk-engine:8082"
+            - name: DISASTER_SERVICE_URL
+              value: "http://disaster-service:8083"
+            - name: CLIMATE_SERVICE_URL
+              value: "http://climate-service:8084"
+            - name: ALERT_SERVICE_URL
+              value: "http://alert-service:8085"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: geosentinel
+spec:
+  type: LoadBalancer
+  selector:
+    app: api-gateway
+  ports:
+    - port: 80
+      targetPort: 8080

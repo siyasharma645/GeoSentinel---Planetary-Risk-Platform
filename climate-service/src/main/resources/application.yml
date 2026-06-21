@@ -1,0 +1,29 @@
+server:
+  port: 8084
+spring:
+  application.name: climate-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/geosentinel}
+    username: ${DB_USER:geosentinel}
+    password: ${DB_PASSWORD:gs_secret}
+    hikari.maximum-pool-size: 10
+  jpa:
+    hibernate.ddl-auto: validate
+    show-sql: false
+    properties.hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+  data.redis:
+    host: ${REDIS_HOST:localhost}
+    port: 6379
+    password: ${REDIS_PASSWORD:gs_redis}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+ingestion:
+  open-meteo.url: https://api.open-meteo.com/v1
+  enabled: true
+springdoc:
+  api-docs.path: /api-docs
+  swagger-ui.path: /swagger-ui.html
+management.endpoints.web.exposure.include: health,info,prometheus

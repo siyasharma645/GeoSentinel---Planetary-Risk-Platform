@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: geosentinel
+spec:
+  serviceName: postgres-service
+  replicas: 1
+  selector:
+    matchLabels: {app: postgres}
+  template:
+    metadata:
+      labels: {app: postgres}
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports: [{containerPort: 5432}]
+          env:
+            - {name: POSTGRES_USER,     value: geosentinel}
+            - {name: POSTGRES_DB,       value: geosentinel}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: gs-secrets, key: DB_PASSWORD}
+          volumeMounts:
+            - {name: pgdata, mountPath: /var/lib/postgresql/data}
+          readinessProbe:
+            exec:
+              command: [pg_isready,-U,geosentinel]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+  volumeClaimTemplates:
+    - metadata: {name: pgdata}
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests: {storage: 10Gi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: geosentinel
+spec:
+  selector: {app: postgres}
+  ports: [{port: 5432}]
+  clusterIP: None

@@ -1,0 +1,51 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: api-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+      password: ${REDIS_PASSWORD:gs_redis}
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins: "*"
+            allowed-methods: "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+            allowed-headers: "*"
+            exposed-headers: "Authorization"
+      routes:
+        - id: auth
+          uri: ${AUTH_URL:http://localhost:8081}
+          predicates: [Path=/api/v1/auth/**]
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 50
+        - id: risk
+          uri: ${RISK_URL:http://localhost:8082}
+          predicates: [Path=/api/v1/risk/**]
+          filters: [JwtAuthFilter]
+        - id: disasters
+          uri: ${DISASTER_URL:http://localhost:8083}
+          predicates: [Path=/api/v1/disasters/**]
+          filters: [JwtAuthFilter]
+        - id: climate
+          uri: ${CLIMATE_URL:http://localhost:8084}
+          predicates: [Path=/api/v1/climate/**]
+          filters: [JwtAuthFilter]
+        - id: alerts
+          uri: ${ALERT_URL:http://localhost:8085}
+          predicates: [Path=/api/v1/alerts/**]
+          filters: [JwtAuthFilter]
+        - id: ws
+          uri: ${ALERT_URL:http://localhost:8085}
+          predicates: [Path=/ws/**]
+jwt:
+  secret: ${JWT_SECRET:gs_jwt_secret_256bits_padded_for_minimum_length_requirement}
+management:
+  endpoints.web.exposure.include: health,info,prometheus

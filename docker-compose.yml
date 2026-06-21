@@ -1,0 +1,165 @@
+version: '3.9'
+networks:
+  gs: {driver: bridge}
+volumes:
+  pgdata: {} redisdata: {} kafkadata: {} zkdata: {} esdata: {}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gs-postgres
+    environment: {POSTGRES_USER: geosentinel, POSTGRES_PASSWORD: gs_secret, POSTGRES_DB: geosentinel}
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data, ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql]
+    networks: [gs]
+    healthcheck: {test: ["CMD-SHELL","pg_isready -U geosentinel"], interval: 10s, timeout: 5s, retries: 5}
+
+  redis:
+    image: redis:7-alpine
+    container_name: gs-redis
+    command: redis-server --requirepass gs_redis --appendonly yes
+    ports: ["6379:6379"]
+    volumes: [redisdata:/data]
+    networks: [gs]
+    healthcheck: {test: ["CMD","redis-cli","-a","gs_redis","ping"], interval: 10s, timeout: 5s, retries: 5}
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: gs-zookeeper
+    environment: {ZOOKEEPER_CLIENT_PORT: 2181, ZOOKEEPER_TICK_TIME: 2000}
+    volumes: [zkdata:/var/lib/zookeeper/data]
+    networks: [gs]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: gs-kafka
+    depends_on: [zookeeper]
+    ports: ["9092:9092"]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes: [kafkadata:/var/lib/kafka/data]
+    networks: [gs]
+    healthcheck: {test: ["CMD","kafka-broker-api-versions","--bootstrap-server","localhost:9092"], interval: 20s, timeout: 10s, retries: 5}
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: gs-es
+    environment: [discovery.type=single-node, xpack.security.enabled=false, "ES_JAVA_OPTS=-Xms512m -Xmx512m"]
+    ports: ["9200:9200"]
+    volumes: [esdata:/usr/share/elasticsearch/data]
+    networks: [gs]
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: gs-gateway
+    ports: ["8080:8080"]
+    environment:
+      JWT_SECRET: gs_jwt_secret_256bits_padded_for_minimum_length_requirement
+      REDIS_HOST: redis
+      REDIS_PASSWORD: gs_redis
+      AUTH_URL: http://auth-service:8081
+      RISK_URL: http://risk-engine:8082
+      DISASTER_URL: http://disaster-service:8083
+      CLIMATE_URL: http://climate-service:8084
+      ALERT_URL: http://alert-service:8085
+    depends_on: [redis]
+    networks: [gs]
+    restart: unless-stopped
+
+  auth-service:
+    build: ./auth-service
+    container_name: gs-auth
+    ports: ["8081:8081"]
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/geosentinel
+      DB_USER: geosentinel
+      DB_PASSWORD: gs_secret
+      REDIS_HOST: redis
+      REDIS_PASSWORD: gs_redis
+      JWT_SECRET: gs_jwt_secret_256bits_padded_for_minimum_length_requirement
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [gs]
+    restart: unless-stopped
+
+  risk-engine:
+    build: ./risk-engine
+    container_name: gs-risk
+    ports: ["8082:8082"]
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/geosentinel
+      DB_USER: geosentinel
+      DB_PASSWORD: gs_secret
+      REDIS_HOST: redis
+      REDIS_PASSWORD: gs_redis
+      KAFKA_BOOTSTRAP: kafka:29092
+    depends_on:
+      postgres: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    networks: [gs]
+    restart: unless-stopped
+
+  disaster-service:
+    build: ./disaster-service
+    container_name: gs-disaster
+    ports: ["8083:8083"]
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/geosentinel
+      DB_USER: geosentinel
+      DB_PASSWORD: gs_secret
+      REDIS_HOST: redis
+      REDIS_PASSWORD: gs_redis
+      KAFKA_BOOTSTRAP: kafka:29092
+    depends_on:
+      postgres: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    networks: [gs]
+    restart: unless-stopped
+
+  climate-service:
+    build: ./climate-service
+    container_name: gs-climate
+    ports: ["8084:8084"]
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/geosentinel
+      DB_USER: geosentinel
+      DB_PASSWORD: gs_secret
+      REDIS_HOST: redis
+      REDIS_PASSWORD: gs_redis
+      KAFKA_BOOTSTRAP: kafka:29092
+    depends_on:
+      postgres: {condition: service_healthy}
+    networks: [gs]
+    restart: unless-stopped
+
+  alert-service:
+    build: ./alert-service
+    container_name: gs-alert
+    ports: ["8085:8085"]
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/geosentinel
+      DB_USER: geosentinel
+      DB_PASSWORD: gs_secret
+      REDIS_HOST: redis
+      REDIS_PASSWORD: gs_redis
+      KAFKA_BOOTSTRAP: kafka:29092
+    depends_on:
+      postgres: {condition: service_healthy}
+      kafka: {condition: service_healthy}
+    networks: [gs]
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: gs-frontend
+    ports: ["3000:80"]
+    depends_on: [api-gateway]
+    networks: [gs]
+    restart: unless-stopped

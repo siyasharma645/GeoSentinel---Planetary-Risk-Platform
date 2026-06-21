@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: geosentinel-config
+  namespace: geosentinel
+data:
+  DB_USER: geosentinel
+  REDIS_HOST: redis-service
+  KAFKA_BOOTSTRAP: kafka-service:9092
+  ELASTICSEARCH_URL: http://elasticsearch-service:9200
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: geosentinel-secrets
+  namespace: geosentinel
+type: Opaque
+stringData:
+  DB_PASSWORD: geosentinel_secret
+  REDIS_PASSWORD: geosentinel_redis
+  JWT_SECRET: geosentinel_jwt_secret_key_minimum_256_bits_long_for_hs256
+  DB_URL: jdbc:postgresql://postgres-service:5432/geosentinel

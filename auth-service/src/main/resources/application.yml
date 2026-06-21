@@ -1,0 +1,25 @@
+server:
+  port: 8081
+spring:
+  application.name: auth-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/geosentinel}
+    username: ${DB_USER:geosentinel}
+    password: ${DB_PASSWORD:gs_secret}
+    hikari.maximum-pool-size: 10
+  jpa:
+    hibernate.ddl-auto: validate
+    show-sql: false
+    properties.hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+  data.redis:
+    host: ${REDIS_HOST:localhost}
+    port: 6379
+    password: ${REDIS_PASSWORD:gs_redis}
+jwt:
+  secret: ${JWT_SECRET:gs_jwt_secret_256bits_padded_for_minimum_length_requirement}
+  expiry-ms: 3600000
+  refresh-expiry-ms: 604800000
+springdoc:
+  api-docs.path: /api-docs
+  swagger-ui.path: /swagger-ui.html
+management.endpoints.web.exposure.include: health,info,prometheus
