@@ -58,3 +58,12 @@
 **Infrastructure:** Docker, Kubernetes, Prometheus, Micrometer
 
 **AI & Data Sources:** Anthropic Claude API, USGS API, Open-Meteo API
+
+
+
+
+## Summary
+
+GeoSentinel — AI-Powered Planetary Risk Intelligence Platform
+GeoSentinel is a full-stack risk intelligence platform where users search any location on Earth and receive an AI-generated report scoring Climate, Disaster, Water, Food, Health, and Conflict risk using UN INFORM methodology. Six Spring Boot 3.2 microservices run behind a Spring Cloud Gateway with JWT auth and Redis rate limiting. Dual-layer Redis and PostgreSQL caching cuts LLM response time from 3s to under 100ms. Real-time ingestion pulls earthquakes from USGS every 5 minutes and climate data from Open-Meteo every 15 minutes, with Apache Kafka handling async disaster escalation alerts. Deployed via Docker Compose and Kubernetes with HPA autoscaling.
+Stack: Java 21, Spring Boot, Kafka, PostgreSQL, Redis, React 18, Docker, Kubernetes.
