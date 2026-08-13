@@ -2,7 +2,11 @@ version: '3.9'
 networks:
   gs: {driver: bridge}
 volumes:
-  pgdata: {} redisdata: {} kafkadata: {} zkdata: {} esdata: {}
+  pgdata: {}
+  redisdata: {}
+  kafkadata: {}
+  zkdata: {}
+  esdata: {}
 
 services:
   postgres:
